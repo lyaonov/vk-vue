@@ -1,0 +1,23 @@
+{
+  "name": "vk_parser",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "dependencies": {
+    "@kyvg/vue3-notification": "^2.4.1",
+    "axios": "^1.0.0",
+    "axios-jsonp": "^1.0.4",
+    "javascript-time-ago": "^2.5.7",
+    "pinia": "^2.0.21",
+    "vue": "^3.2.38",
+    "vue-router": "^4.1.5",
+    "vue3-virtual-scroll-list": "^0.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^3.0.3",
+    "vite": "^3.0.9"
+  }
+}

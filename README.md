@@ -2,7 +2,7 @@
 
 Test example vk parser friends
 
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+# Work app
 
 ## Project Setup
 

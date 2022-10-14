@@ -1,14 +1,13 @@
-# vk_parser
+# vk_vue
 
-This template should help get you started developing with Vue 3 in Vite.
+Test example vk parser friends
 
-## Recommended IDE Setup
+# Work app
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+1. follow the link to view https://vk-vue.nikitalieonov.repl.co/
+2. click on "access token"
+3. confirm permission
+4. copy the link and paste it into the input field
 
 ## Project Setup
 

@@ -1,11 +1,14 @@
 <script setup>
 import CardList from "../components/CardList.vue"
+import SearchList from '../components/SearchList.vue'
 import axios from 'axios';
 import jsonpAdapter from 'axios-jsonp';
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute, RouterLink, RouterView } from 'vue-router'
-import { useSelectListStore, useFriendListStore, useTokenStore } from "../stores/state";
+import { useSelectListStore, useSearchListStore, useFriendListStore, useTokenStore } from "../stores/state";
 import { notify } from "@kyvg/vue3-notification";
+
+
 
 const tokenStore = useTokenStore();
 const token = computed(() => tokenStore.token);
@@ -14,11 +17,27 @@ const sexMap = {
   1: "Ж",
   2: "М"
 }
+const monthName = {
+  1: ' января',
+  2: ' февраля',
+  3: ' марта',
+  4: ' апрель',
+  5: ' мая',
+  6: ' июня',
+  7: ' июля',
+  8: ' августа',
+  9: ' сентября',
+  10: ' октября',
+  11: ' ноября',
+  12: ' декабря'
+}
 
 const bdateRegex = /(\d+)\.(\d+)\.(\d+)/;
+const bdateRegexDayMonth = /(\d+)\.(\d+)/;
 
 const pholder = ref('Введите ник пользователя');
 const title = ref('Список');
+const autoPholder = ref('Поиск по имени');
 
 const router = useRouter();
 const route = useRoute();
@@ -26,10 +45,14 @@ const route = useRoute();
 const selectListStore = useSelectListStore();
 const selectList = computed(() => selectListStore.list);
 
+const searchListStore = useSearchListStore();
+const searchList = computed(() => searchListStore.list);
+
 const friendsListStore = useFriendListStore();
 
 const { friendList, setFriendList } = useFriendListStore();
 const inputValue = ref('');
+const inputName = ref('');
 
 async function getFriends(userId) {
   const params = {
@@ -80,6 +103,7 @@ function listFriends() {
       data.forEach((friend) => {
         if (!idMap.has(friend.id)) {
           const bdateMatch = bdateRegex.exec(friend.bdate);
+          const bdateMatch2 = bdateRegexDayMonth.exec(friend.bdate);
           let age = null;
           if (bdateMatch) {
             const day = Number(bdateMatch[1]);
@@ -88,17 +112,18 @@ function listFriends() {
             const bdate = new Date(year, month, day, 0, 0, 0, 0);
             const today = new Date();
             const diffMs = today - bdate;
-            age = Math.floor(diffMs / 31556952000);
+            age = `,  ${Math.floor(diffMs / 31556952000)}  лет`;
+          } else if (bdateMatch2) {
+            const day = Number(bdateMatch2[1]);
+            const month = monthName[Number(bdateMatch2[2])];
+            age = `, ${day}  ${month}`;
           }
           let description = '';
           if (friend.sex) {
             description += `${sexMap[friend.sex]}`;
           }
-          if (friend.followers_count) {
-            description += `, ${friend.followers_count} друзей`;
-          }
           if (age) {
-            description += `, ${age} лет`;
+            description += age;
           }
           idMap.set(friend.id, {
             name: friend.first_name + ' ' + friend.last_name,
@@ -130,6 +155,34 @@ function listFriends() {
   });
 }
 
+function searchItem() {
+  searchListStore.clear()
+  if (inputName.value !== '') {
+    const params = {
+      q: inputName.value,
+      fields: 'photo_200',
+      access_token: token.value,
+      v: 5.131,
+    }
+    axios({
+      url: 'https://api.vk.com/method/users.search',
+      adapter: jsonpAdapter,
+      method: "GET",
+      params
+    }).then(({ data }) => {
+      const count = 5 //data.response.items.length
+      for (let i = 0; i < count; i++) {
+        const newItem = {
+          id: data.response.items[i].id,
+          photo: data.response.items[i].photo_200,
+          Name: data.response.items[i].first_name + ' ' + data.response.items[i].last_name,
+        }
+        searchListStore.push(newItem)
+      }
+    });
+  } else searchListStore.clear()
+}
+
 function addNewItem() {
   if (inputValue.value !== '') {
     const params = {
@@ -156,11 +209,40 @@ function addNewItem() {
     inputValue.value = '';
   }
 }
+function addNewItem2(id) {
+  if (id !== '') {
+    const params = {
+      user_ids: id,
+      fields: 'photo_200',
+      access_token: token.value,
+      v: 5.131,
+    }
+    axios({
+      url: 'https://api.vk.com/method/users.get',
+      adapter: jsonpAdapter,
+      method: "GET",
+      params
+    }).then(({ data }) => {
+      const newItem = {
+        name: data.response[0].first_name + ' ' + data.response[0].last_name,
+        id: data.response[0].id,
+        photoMain: data.response[0].photo_200,
+        firstName: data.response[0].first_name,
+      }
+      selectListStore.push(newItem);
+      saveToLocalStorage(selectList.value);
+    });
+  }
+}
 
 onMounted(() => {
   const localItems = localStorage.getItem('selectList');
   if (localItems && localItems !== "undefined") {
     selectListStore.set(JSON.parse(localItems));
+  }
+  const localItems2 = localStorage.getItem('searchList');
+  if (localItems2 && localItems2 !== "undefined") {
+    searchListStore.set(JSON.parse(localItems2));
   }
 })
 
@@ -168,6 +250,15 @@ function remove(i) {
   selectListStore.remove(i);
   localStorage.clear()
   localStorage.setItem('selectList', JSON.stringify(selectList.value))
+}
+function add(i) {
+  addNewItem2(i)
+  searchListStore.clear()
+  inputName.value = '';
+}
+function clear() {
+  searchListStore.clear()
+  inputName.value = '';
 }
 </script>
 
@@ -180,6 +271,13 @@ function remove(i) {
         <input type="text" v-bind:placeholder="pholder" v-model="inputValue" v-on:keypress.enter='addNewItem'>
       </div>
       <button class="btn" v-on:click="addNewItem">Добавить</button>
+      <div class="form-control">
+        <input type="text" v-bind:placeholder="autoPholder" v-model="inputName" v-on:keypress.enter='searchItem'>
+        <button class="btn" v-on:click="searchItem">Искать</button>
+        <SearchList :itemList="searchList" @add="add" @clear='clear' />
+
+      </div>
+      <hr>
       <button class="btn" v-on:click="listFriends">Построить</button>
       <button class="btn danger" v-on:click="clearItems">Очистить</button>
     </template>
@@ -203,15 +301,22 @@ main {
 }
 
 .form-control input {
-  margin: 0;
+  margin: 0px;
   outline: none;
   border: 2px solid #ccc;
   display: block;
-  width: 100%;
+  width: 70%;
   color: #2c3e50;
   padding: 0.5rem 1.5rem;
   border-radius: 3px;
   font-size: 1rem;
+  float: left;
+
+}
+
+button {
+  margin: 5px;
+  margin-left: 10px;
 }
 
 .form-control label {

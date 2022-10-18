@@ -1,40 +1,97 @@
-<script setup>
-import {defineEmits, computed} from 'vue';
 
-const emit = defineEmits(["selectFriend"]);
-const props = defineProps({
-  itemList: {
-    type: Array,
-    required: true
+<script>
+import { defineEmits, computed, onMounted } from 'vue';
+import axios from 'axios';
+import jsonpAdapter from 'axios-jsonp';
+import { useTokenStore } from "../stores/state";
+const tokenStore = useTokenStore();
+const token = computed(() => tokenStore.token);
+
+export default {
+  props: {
+    itemList: Array,
+  },
+  data() {
+    return {
+      // minColor: [255, 255, 255],
+      // maxColor: [68, 123, 186],
+      coloredList: this.itemList.map((item) => ({
+        color: this.getColor(item.relatedFriends.length),
+        numberFriend: this.getFriend(item, item.id),
+        ...item
+      })),
+    }
+  },
+  methods: {
+    getColor(friendsCount) {
+      let minFriendsCount = this.itemList.reduce((a, b) => Math.min(a, b.relatedFriends.length), Number.MAX_SAFE_INTEGER)
+      let maxFriendsCount = this.itemList.reduce((a, b) => Math.max(a, b.relatedFriends.length), Number.MIN_SAFE_INTEGER)
+      const alpha = (friendsCount - minFriendsCount) / (maxFriendsCount - minFriendsCount);
+      const r = Math.floor(255 + (68 - 255) * alpha);
+      const g = Math.floor(255 + (123 - 255) * alpha);
+      const b = Math.floor(255 + (186 - 255) * alpha);
+      return `rgb(${r}, ${g}, ${b}, .5)`;
+    },
+    selectFriend(id) {
+      for (var i = 1; i < 99999; i++) {
+        window.clearInterval(i);
+        window.clearTimeout(i);
+        if(window.mozCancelAnimationFrame)window.mozCancelAnimationFrame(i); // Firefox
+      }
+        this.$emit('selectFriend', id)
+      },
+      getFriend(item, id) {
+        let saver = 0
+        for (let i = 0; i < this.itemList.length; i++) {
+          if (this.itemList[i] === item) {
+            saver = i + 1
+            break
+          }
+        }
+
+
+        let x = setTimeout(() => {
+          this.getReqNumFriends(id, saver - 1)
+        }, saver * 400)
+        let y = x
+
+      },
+      getReqNumFriends(id, i) {
+        const params = {
+          user_ids: id,
+          fields: 'counters',
+          access_token: token.value,
+          v: 5.131,
+        }
+        axios({
+          url: 'https://api.vk.com/method/users.get',
+          adapter: jsonpAdapter,
+          method: "GET",
+          params
+        }).then(data => {
+          try {
+            this.coloredList[i].numberFriend = data.data.response[0].counters.friends
+          } catch (e) { console.log(data.data.response[0]) }
+        })
+
+      }
+
+    },
+    mounted() {
+    }
+
   }
-})
-
-const minColor = [255, 255, 255];
-const maxColor = [68, 123, 186];
-const minFriendsCount = computed(() => props.itemList.reduce((a, b) => Math.min(a, b.relatedFriends.length), Number.MAX_SAFE_INTEGER));
-const maxFriendsCount = computed(() => props.itemList.reduce((a, b) => Math.max(a, b.relatedFriends.length), Number.MIN_SAFE_INTEGER));
-
-const coloredList = computed(() => props.itemList.map((item) => ({
-  color: getColor(item.relatedFriends.length),
-  ...item
-})));
-
-function getColor(friendsCount) {
-  const alpha = (friendsCount - minFriendsCount.value) / (maxFriendsCount.value - minFriendsCount.value);
-  const r = Math.floor(minColor[0] + (maxColor[0] - minColor[0]) * alpha);
-  const g = Math.floor(minColor[1] + (maxColor[1] - minColor[1]) * alpha);
-  const b = Math.floor(minColor[2] + (maxColor[2] - minColor[2]) * alpha);
-  return `rgb(${r}, ${g}, ${b}, .5)`;
-}
 </script>
 
 <template>
   <ul class="list" v-if="coloredList.length !== 0">
-    <li class="list-item card" @click="() => emit('selectFriend', item.id)" :style="{'background-color': item.color}" v-for="item in coloredList">
+    <li class="list-item card" @click="selectFriend(item.id)" :style="{'background-color': item.color}"
+      v-for="item in coloredList">
       <img :src="item.photoMain" alt="">
       <div class="info">
         <div class="name">{{ item.name }}</div>
-        <div class="description">{{ item.description }}</div>
+        <div class="description">{{ item.description + (item.numberFriend ? ', ' + item.numberFriend + ' друзей' : "")
+        }}</div>
       </div>
     </li>
     <hr>
@@ -56,6 +113,11 @@ span {
 
 li {
   margin: 0.5em;
+}
+
+li:hover {
+  scale: 1.02;
+  transition: 0.2s;
 }
 
 .info {

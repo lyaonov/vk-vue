@@ -8,7 +8,13 @@ import { useRouter, useRoute, RouterLink, RouterView } from 'vue-router'
 import { useSelectListStore, useSearchListStore, useFriendListStore, useTokenStore } from "../stores/state";
 import { notify } from "@kyvg/vue3-notification";
 
+for (var i = 1; i < 99999; i++) {
+  window.clearInterval(i);
+  window.clearTimeout(i);
+  if (window.mozCancelAnimationFrame) window.mozCancelAnimationFrame(i); // Firefox
+} // clear timeout
 
+let checkTimeoutString = ''
 
 const tokenStore = useTokenStore();
 const token = computed(() => tokenStore.token);
@@ -21,7 +27,7 @@ const monthName = {
   1: ' января',
   2: ' февраля',
   3: ' марта',
-  4: ' апрель',
+  4: ' апреля',
   5: ' мая',
   6: ' июня',
   7: ' июля',
@@ -53,6 +59,7 @@ const friendsListStore = useFriendListStore();
 const { friendList, setFriendList } = useFriendListStore();
 const inputValue = ref('');
 const inputName = ref('');
+const textAutocomplete = ref('')
 
 async function getFriends(userId) {
   const params = {
@@ -170,17 +177,30 @@ function searchItem() {
       method: "GET",
       params
     }).then(({ data }) => {
-      const count = 5 //data.response.items.length
+      let count = 0
+      if(data.response.items.length >= 5){
+        count = 5
+      }
+      else{
+        count = data.response.items.length
+      }
+      if (count === 0){textAutocomplete.value = ''}
       for (let i = 0; i < count; i++) {
         const newItem = {
           id: data.response.items[i].id,
           photo: data.response.items[i].photo_200,
           Name: data.response.items[i].first_name + ' ' + data.response.items[i].last_name,
         }
-        searchListStore.push(newItem)
+        if (!(searchList.value.find((person) => person.id === newItem.id))) {
+          searchListStore.push(newItem)
+            textAutocomplete.value = searchList.value[0].Name 
+        }
       }
     });
-  } else searchListStore.clear()
+  } else {
+    searchListStore.clear()
+    textAutocomplete.value=''
+  }
 }
 
 function addNewItem() {
@@ -203,8 +223,11 @@ function addNewItem() {
         photoMain: data.response[0].photo_200,
         firstName: data.response[0].first_name,
       }
-      selectListStore.push(newItem);
-      saveToLocalStorage(selectList.value);
+      if (!(selectList.value.find((person) => person.id === newItem.id))) {
+        selectListStore.push(newItem);
+        saveToLocalStorage(selectList.value);
+      }
+
     });
     inputValue.value = '';
   }
@@ -229,8 +252,10 @@ function addNewItem2(id) {
         photoMain: data.response[0].photo_200,
         firstName: data.response[0].first_name,
       }
-      selectListStore.push(newItem);
-      saveToLocalStorage(selectList.value);
+      if (!(selectList.value.find((person) => person.id === newItem.id))) {
+        selectListStore.push(newItem);
+        saveToLocalStorage(selectList.value);
+      }
     });
   }
 }
@@ -246,6 +271,7 @@ onMounted(() => {
   }
 })
 
+
 function remove(i) {
   selectListStore.remove(i);
   localStorage.clear()
@@ -255,10 +281,32 @@ function add(i) {
   addNewItem2(i)
   searchListStore.clear()
   inputName.value = '';
+  checkTimeoutString = ''
+  textAutocomplete.value=''
 }
 function clear() {
   searchListStore.clear()
   inputName.value = '';
+  textAutocomplete.value=''
+  checkTimeoutString = ''
+}
+function show() {
+  setTimeout(() => {
+    check()
+  }, 1000)
+
+  function check() {
+    if (inputName.value !== checkTimeoutString) {
+      checkTimeoutString = inputName.value
+      searchItem()
+    }
+  }
+}
+function addAutocompleteValue(){
+  add(searchList.value[0].id)
+  searchListStore.clear()
+  textAutocomplete.value=''
+
 }
 </script>
 
@@ -272,7 +320,9 @@ function clear() {
       </div>
       <button class="btn" v-on:click="addNewItem">Добавить</button>
       <div class="form-control">
-        <input type="text" v-bind:placeholder="autoPholder" v-model="inputName" v-on:keypress.enter='searchItem'>
+        <input type="text" v-bind:placeholder="autoPholder" v-model="inputName" @keyup="show"
+          v-on:keypress.enter='searchItem, addAutocompleteValue()' >
+        <p>{{textAutocomplete}}</p>
         <button class="btn" v-on:click="searchItem">Искать</button>
         <SearchList :itemList="searchList" @add="add" @clear='clear' />
 
@@ -293,6 +343,20 @@ function clear() {
 main {
   max-width: 550px;
   margin: 0 auto;
+}
+
+p {
+  text-align: center;
+  position: absolute;
+  opacity: .9;
+  white-space: pre-wrap;
+  top: 24px;
+  background-color: lightblue;
+  color: white;
+  width: 70%;
+  padding-left: 15px;
+  border-radius: 5px;
+  z-index: 36;
 }
 
 .form-control {
